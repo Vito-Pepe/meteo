@@ -47,23 +47,19 @@ Per aggiornare: `git pull && docker compose up -d --build`.
 
 I browser concedono la posizione **solo a pagine HTTPS** (o `localhost`). Aprendo `http://…:8765` la ricerca funziona, ma il pulsante "usa la mia posizione" no.
 
-Con Tailscale si risolve sul Raspberry, pubblicando l'app in HTTPS **solo dentro la tua tailnet**.
+Con Tailscale si risolve in un comando sul Raspberry, che pubblica l'app in HTTPS **solo dentro la tua tailnet**:
+
+```bash
+sudo tailscale serve --bg --https=443 http://127.0.0.1:8765
+```
+
+Poi apri `https://<nome-raspberry>.<tua-tailnet>.ts.net`. Il certificato è valido e il browser chiederà il permesso per la posizione.
 
 Prerequisiti (una tantum, dal pannello di amministrazione di Tailscale → DNS): **MagicDNS** e **HTTPS Certificates** attivi.
 
-Il browser nasconde la porta solo quando è la 443. Se `https://<nome>.ts.net/` è già usato da un'altra app (per esempio Sillabe), il meteo si può pubblicare in due modi, anche insieme:
+Se sulla porta 443 c'è già un'altra app servita così, usa un'altra porta HTTPS, per esempio `--https=8443`, e apri `https://<nome>.ts.net:8443`.
 
-```bash
-# Senza porta nell'URL: https://<nome>.ts.net/meteo/  (l'app alla radice resta com'è)
-sudo tailscale serve --bg --https=443 --set-path=/meteo http://127.0.0.1:8765
-
-# Su una porta dedicata: https://<nome>.ts.net:8443/
-sudo tailscale serve --bg --https=8443 http://127.0.0.1:8765
-```
-
-L'app funziona sia alla radice sia sotto un percorso, perché usa solo indirizzi relativi.
-
-Per vedere la configurazione: `tailscale serve status`. Per togliere il percorso `/meteo`: `sudo tailscale serve --https=443 --set-path=/meteo off`.
+Per vedere o rimuovere la configurazione: `tailscale serve status`, `sudo tailscale serve --https=443 off`.
 
 ## Sviluppo
 

@@ -115,7 +115,7 @@
       showMessage('<div class="spinner"></div><p>Carico il meteo di <strong>' + esc(place.name) + '</strong>…</p>');
       $('weather').hidden = true;
     }
-    return getJson('/api/forecast?lat=' + place.latitude + '&lon=' + place.longitude)
+    return getJson('api/forecast?lat=' + place.latitude + '&lon=' + place.longitude)
       .then(function (data) {
         state.data = data;
         state.loading = false;
@@ -144,7 +144,7 @@
         var lon = Math.round(pos.coords.longitude * 1000) / 1000;
         var place = { name: 'La tua posizione', region: lat + ', ' + lon, latitude: lat, longitude: lon, gps: true };
         loadPlace(place);
-        getJson('/api/reverse?lat=' + lat + '&lon=' + lon).then(function (r) {
+        getJson('api/reverse?lat=' + lat + '&lon=' + lon).then(function (r) {
           if (!r.name || state.place !== place) return;
           place.name = r.name;
           place.region = r.region;
@@ -368,7 +368,7 @@
 
   function search(q) {
     var seq = ++searchSeq;
-    getJson('/api/search?q=' + encodeURIComponent(q)).then(function (body) {
+    getJson('api/search?q=' + encodeURIComponent(q)).then(function (body) {
       if (seq !== searchSeq) return;
       results = body.results.length ? body.results : [{ empty: 'Nessuna località trovata' }];
       active = body.results.length ? 0 : -1;

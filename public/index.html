@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <title>Meteo</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <form id="search-form" class="search" role="search" autocomplete="off">
+      <input id="search-input" type="search" placeholder="Cerca una località…" aria-label="Cerca una località">
+      <button id="locate-btn" type="button" class="icon-btn" title="Usa la mia posizione" aria-label="Usa la mia posizione">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="3.5" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      </button>
+      <ul id="search-results" class="results" role="listbox" hidden></ul>
+    </form>
+  </header>
+
+  <main id="app">
+    <section id="message" class="message" hidden></section>
+
+    <section id="weather" hidden>
+      <div class="place">
+        <h1 id="place-name"></h1>
+        <p id="place-region" class="muted"></p>
+      </div>
+
+      <article id="now" class="card now"></article>
+
+      <section class="card">
+        <div class="section-head">
+          <h2 id="day-title">Oggi, ora per ora</h2>
+          <p id="day-summary" class="muted small"></p>
+        </div>
+        <div id="day-stats" class="stats"></div>
+        <div id="hours" class="hours"></div>
+      </section>
+
+      <section class="card">
+        <h2>Prossimi 7 giorni</h2>
+        <ul id="week" class="week"></ul>
+      </section>
+
+      <p class="muted small footer">
+        Aggiornato alle <span id="updated"></span> · Dati <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>
+      </p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

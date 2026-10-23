@@ -1,0 +1,12 @@
+services:
+  meteo:
+    build: .
+    image: meteo:latest
+    container_name: meteo
+    restart: unless-stopped
+    environment:
+      - PORT=8765
+      - CACHE_TTL_SECONDS=600
+    ports:
+      # Porta sul Raspberry : porta nel container. Cambia la prima se 8765 è già occupata.
+      - "8765:8765"

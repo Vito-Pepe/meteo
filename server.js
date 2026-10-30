@@ -346,10 +346,11 @@ async function getTile(z, x, y) {
   return tilePending.get(key);
 }
 
-// Solo le scritte della tessera (labels.js), da mettere sopra il disegno del meteo. Si ricavano
-// dalla tessera già in cache: a OpenStreetMap ogni tessera si chiede una volta sola.
-async function getLabels(z, x, y) {
-  const key = `labels/${z}/${x}/${y}`;
+// Solo le scritte della tessera (labels.js), da mettere sopra il disegno del meteo, a 1x, 2x o 3x
+// come lo schermo che le chiede. Si ricavano dalla tessera già in cache: a OpenStreetMap ogni
+// tessera si chiede una volta sola.
+async function getLabels(z, x, y, scale) {
+  const key = `labels/${z}/${x}/${y}@${scale}`;
   const hit = tileCache.get(key);
   if (hit && hit.expires > Date.now()) {
     storeTile(key, hit);
@@ -358,7 +359,7 @@ async function getLabels(z, x, y) {
   const base = await getTile(z, x, y);
   let body;
   try {
-    body = labelsFromTile(base);
+    body = labelsFromTile(base, scale);
   } catch (err) {
     console.error(`[${new Date().toISOString()}] scritte ${z}/${x}/${y}: ${err.message}`);
     body = EMPTY_TILE;
@@ -370,11 +371,12 @@ async function getLabels(z, x, y) {
 
 async function serveTile(req, res, match) {
   const labels = match[1] === 'labels';
-  const [z, x, y] = match.slice(2).map(Number);
+  const [z, x, y] = match.slice(2, 5).map(Number);
+  const scale = Number(match[5] || 1);
   const n = 2 ** z;
-  if (z > TILE_MAX_ZOOM || x >= n || y >= n) return send(res, 400, 'Tessera non valida', { 'Content-Type': 'text/plain' });
+  if (z > TILE_MAX_ZOOM || x >= n || y >= n || (scale > 1 && !labels)) return send(res, 400, 'Tessera non valida', { 'Content-Type': 'text/plain' });
   try {
-    const body = labels ? await getLabels(z, x, y) : await getTile(z, x, y);
+    const body = labels ? await getLabels(z, x, y, scale) : await getTile(z, x, y);
     res.writeHead(200, {
       'Content-Type': 'image/png',
       'Content-Length': body.length,
@@ -456,7 +458,7 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === '/healthz') return sendJson(req, res, 200, { ok: true });
 
-  const tile = /^\/(tiles|labels)\/(\d{1,2})\/(\d{1,7})\/(\d{1,7})\.png$/.exec(url.pathname);
+  const tile = /^\/(tiles|labels)\/(\d{1,2})\/(\d{1,7})\/(\d{1,7})(?:@([23])x)?\.png$/.exec(url.pathname);
   if (tile) return serveTile(req, res, tile);
 
   const route = ROUTES[url.pathname];

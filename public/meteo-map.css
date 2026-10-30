@@ -24,6 +24,36 @@
 
 /* --- vista mappa: tutto lo schermo sotto la barra -------------------- */
 
+/* La barra in alto su una riga sola (schede, ricerca, posizione), così la mappa ha più spazio.
+   Sul telefono il campo di ricerca si apre con la lente (app.js) e copre le schede finché si cerca. */
+body.in-map .topbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding-top: max(8px, env(safe-area-inset-top));
+  padding-bottom: 8px;
+}
+body.in-map .tabs { order: -1; flex: 0 1 250px; margin: 0; }
+/* Schede alte 44 pixel esatti come i pulsanti: con la barra alta un numero intero di pixel le
+   tessere della mappa cadono su pixel interi e tra l'una e l'altra non resta una riga chiara */
+body.in-map .tab { line-height: 22px; }
+body.in-map .search { flex: 1 1 auto; min-width: 0; max-width: 502px; margin: 0; }
+body.in-map .results { right: 0; }
+/* La ✕ della lente chiude e svuota la ricerca: quella del campo sarebbe un doppione */
+body.in-map .search input::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
+.search-toggle { display: none; }
+.search-toggle .i-close, body.searching .search-toggle .i-search { display: none; }
+body.searching .search-toggle .i-close { display: block; }
+@media (max-width: 639px) {
+  body.in-map .tabs { flex: 1 1 auto; }
+  body.in-map .search { flex: none; }
+  body.in-map .search-toggle { display: grid; }
+  body.in-map:not(.searching) .search input { display: none; }
+  body.in-map.searching .tabs { display: none; }
+  body.in-map.searching .search { flex: 1 1 auto; }
+}
+
 body.in-map {
   display: flex;
   flex-direction: column;
@@ -103,8 +133,8 @@ body.in-map main {
 
 .map-controls {
   flex: none;
-  padding: 10px 16px;
-  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  padding: 8px 16px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--border);
   background: var(--bg);
 }
@@ -113,28 +143,28 @@ body.in-map main {
   gap: 6px;
   max-width: 760px;
   margin: 0 auto;
-  padding-bottom: 8px;
+  padding-bottom: 6px;
   overflow-x: auto;
   scrollbar-width: none;
 }
 .map-days::-webkit-scrollbar { display: none; }
 .map-day {
   flex: none;
-  padding: 6px 12px;
+  padding: 5px 11px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--card);
   color: var(--text);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
 }
 .map-day.active { border-color: var(--accent); background: var(--accent); color: #fff; }
 
 .map-hour { display: flex; align-items: center; gap: 8px; max-width: 760px; margin: 0 auto; }
-.map-hour input[type="range"] { flex: 1; min-width: 0; height: 32px; margin: 0; accent-color: var(--accent); }
-.map-hour .icon-btn { width: 36px; height: 36px; font-size: 1.3rem; font-weight: 700; line-height: 1; }
+.map-hour input[type="range"] { flex: 1; min-width: 0; height: 28px; margin: 0; accent-color: var(--accent); }
+.map-hour .icon-btn { width: 32px; height: 32px; font-size: 1.2rem; font-weight: 700; line-height: 1; }
 .map-hour .icon-btn:disabled { opacity: 0.4; cursor: default; }
 .map-hour-text { min-width: 3.2em; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
 
@@ -161,10 +191,12 @@ body.in-map main {
 /* --- disegno del meteo e legenda ------------------------------------- */
 
 .meteo-canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
-/* Scritte sopra il meteo: nere con alone bianco, e col tema scuro il contrario (come la mappa) */
+/* Scritte sopra il meteo: nere con alone bianco, e col tema scuro il contrario (come la mappa).
+   Arrivano a 2x o 3x per gli schermi dei telefoni (labels.js): il browser le rimpicciolisce. */
 @media (prefers-color-scheme: dark) { .leaflet-labels-pane { filter: invert(1); } }
 
-/* Stessa altezza per le due legende, così la mappa non cambia misura passando dall'una all'altra */
+/* Legenda bassa e alta uguale nelle due viste, così la mappa non cambia misura passando dall'una
+   all'altra: sul telefono due righe piccole, dove c'è spazio una riga sola. */
 .map-legend {
   display: grid;
   grid-template-columns: repeat(3, auto);
@@ -172,16 +204,17 @@ body.in-map main {
   justify-content: space-between;
   gap: 2px 10px;
   max-width: 760px;
-  height: 38px;
-  margin: 0 auto 8px;
+  height: 30px;
+  margin: 0 auto 6px;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
+  line-height: 14px;
   white-space: nowrap;
 }
-.map-legend.scale { display: block; padding-top: 6px; }
-@media (min-width: 560px) { .map-legend { grid-template-columns: repeat(6, auto); } }
-.map-scale { height: 10px; border-radius: 5px; }
-.map-scale-ticks { display: flex; justify-content: space-between; margin-top: 3px; font-variant-numeric: tabular-nums; }
+.map-legend.scale { display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+@media (min-width: 480px) { .map-legend { grid-template-columns: repeat(6, auto); height: 22px; } }
+.map-scale { height: 6px; border-radius: 3px; }
+.map-scale-ticks { display: flex; justify-content: space-between; font-size: 0.7rem; line-height: 1; font-variant-numeric: tabular-nums; }
 
 /* --- scheda del punto ------------------------------------------------ */
 

@@ -200,20 +200,22 @@ const pixel = (img, x, y) => Array.from(img.rgba.slice((y * img.width + x) * 4, 
 
 test('PNG: legge tavolozza, RGB e RGBA con tutti i filtri, e scrive PNG che rilegge uguali', () => {
   const pal = labels.decodePng(mapTileFixture());
-  assert.strictEqual(pal.width, 16);
+  assert.strictEqual(pal.width, 32);
   assert.deepStrictEqual(pixel(pal, 0, 0), [242, 239, 233, 255]);
   assert.deepStrictEqual(pixel(pal, 7, 7), [34, 34, 34, 255]);
-  assert.deepStrictEqual(pixel(pal, 3, 13), [112, 112, 112, 255]);
+  assert.deepStrictEqual(pixel(pal, 3, 20), [112, 112, 112, 255]);
   const rgb = labels.decodePng(pngFixture(7, 6, (x, y) => [x * 30, y * 40, (x + y) * 10], { color: 2 }));
   assert.deepStrictEqual(pixel(rgb, 5, 4), [150, 160, 90, 255]);
   const rgba = labels.decodePng(pngFixture(5, 6, (x, y) => [x, y, 7, x * 50], { color: 6 }));
   assert.deepStrictEqual(pixel(rgba, 4, 3), [4, 3, 7, 200]);
   const back = labels.decodePng(labels.encodePng(rgba.width, rgba.height, rgba.rgba));
   assert.deepStrictEqual(Array.from(back.rgba), Array.from(rgba.rgba));
+  const ga = labels.decodePng(labels.encodePng(2, 1, Uint8Array.of(10, 20, 30, 40), 2));
+  assert.deepStrictEqual(Array.from(ga.rgba), [10, 10, 10, 20, 30, 30, 30, 40], 'grigio con alfa');
   assert.throws(() => labels.decodePng(Buffer.from('finto-png')), /non è un PNG/);
 });
 
-test('scritte della mappa: nere, con alone bianco, sfondo trasparente, una sola richiesta a OSM', async () => {
+test('scritte della mappa: solo il testo, nero con alone bianco, sfondo trasparente, una sola richiesta a OSM', async () => {
   const before = calls.length;
   assert.strictEqual((await get('/tiles/6/30/20.png')).status, 200);
   const r = await get('/labels/6/30/20.png');
@@ -221,14 +223,41 @@ test('scritte della mappa: nere, con alone bianco, sfondo trasparente, una sola 
   assert.strictEqual(r.type, 'image/png');
   assert.strictEqual(calls.length - before, 1, 'mappa e scritte dalla stessa tessera');
   const img = labels.decodePng(r.buffer);
+  assert.strictEqual(img.width, 32);
   assert.deepStrictEqual(pixel(img, 7, 7), [0, 0, 0, 255], 'scritta nera e piena');
-  const halo = pixel(img, 4, 7);
+  const halo = pixel(img, 5, 7);
   assert.deepStrictEqual(halo.slice(0, 3), [255, 255, 255], 'alone bianco');
   assert.ok(halo[3] > 200 && halo[3] < 230, 'alone quasi pieno: ' + halo[3]);
-  assert.strictEqual(pixel(img, 0, 0)[3], 0, 'sfondo trasparente');
   assert.strictEqual(pixel(img, 3, 7)[3], 0, 'oltre l\'alone, trasparente');
-  const rail = pixel(img, 1, 13);
-  assert.ok(rail[3] > 90 && rail[0] < 128, 'la ferrovia grigia resta, più leggera: ' + rail);
+  assert.strictEqual(pixel(img, 0, 0)[3], 0, 'sfondo trasparente');
+  const thin = pixel(img, 12, 7);
+  assert.ok(thin[3] > 200 && thin[0] < 160, 'la lettera sottile accanto al testo resta: ' + thin);
+  assert.strictEqual(pixel(img, 4, 7)[0], 255, 'il bordo grigio chiaro della strada accanto va via, resta l\'alone');
+  assert.strictEqual(pixel(img, 1, 20)[3], 0, 'la ferrovia grigia (lunga e sottile) va via');
+  assert.strictEqual(pixel(img, 26, 12)[3], 0, 'il bordo colorato della strada va via');
+  assert.strictEqual(pixel(img, 2, 28)[3], 0, 'la macchia grigia lontana dal testo va via');
+});
+
+test('scritte a 2x e 3x per i telefoni: più grandi, con il bordo netto, dalla stessa tessera', async () => {
+  const before = calls.length;
+  const r3 = await get('/labels/6/30/20@3x.png');
+  assert.strictEqual(r3.status, 200);
+  assert.strictEqual(calls.length, before, 'la tessera è già in cache');
+  const img = labels.decodePng(r3.buffer);
+  assert.strictEqual(img.width, 96);
+  assert.strictEqual(img.height, 96);
+  assert.deepStrictEqual(pixel(img, 22, 22), [0, 0, 0, 255], 'dentro la scritta, nero pieno');
+  // Bordo sinistro della scritta (x = 6 nella tessera, 18 a 3x): da bianco a nero in un paio di pixel
+  const row = [14, 15, 16, 17, 18, 19, 20].map((x) => pixel(img, x, 22));
+  assert.deepStrictEqual(row[0].slice(0, 3), [255, 255, 255], 'alone bianco: ' + row[0]);
+  assert.ok(row[0][3] > 200, 'alone pieno: ' + row[0]);
+  assert.ok(row.filter((p) => p[0] > 30 && p[0] < 225).length <= 2, 'bordo netto: ' + row.map((p) => p[0]).join(' '));
+  assert.strictEqual(pixel(img, 5, 60)[3], 0, 'la ferrovia va via anche a 3x');
+  const r2 = labels.decodePng((await get('/labels/6/30/20@2x.png')).buffer);
+  assert.strictEqual(r2.width, 64);
+  assert.deepStrictEqual(pixel(r2, 15, 15), [0, 0, 0, 255]);
+  assert.strictEqual((await get('/tiles/6/30/20@2x.png')).status, 400, 'le mappe solo a 1x');
+  assert.strictEqual((await get('/labels/6/30/20@4x.png')).status, 404);
 });
 
 test('scritte: se la tessera non si legge arriva una tessera trasparente', async () => {
@@ -237,6 +266,7 @@ test('scritte: se la tessera non si legge arriva una tessera trasparente', async
   const img = labels.decodePng(r.buffer);
   assert.strictEqual(img.width, 256);
   assert.ok(img.rgba.every((v, i) => i % 4 !== 3 || v === 0));
+  assert.strictEqual((await get('/labels/5/16/11@3x.png')).status, 200);
   assert.strictEqual((await get('/labels/3/1/1.png')).status, 404);
   assert.strictEqual((await get('/labels/20/0/0.png')).status, 400);
 });

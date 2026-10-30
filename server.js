@@ -8,6 +8,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
+const { labelsFromTile, EMPTY_TILE } = require('./labels');
 
 const PORT = parseInt(process.env.PORT || '8765', 10);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -26,8 +27,10 @@ const MAP_LIMITS = {
   hour: parseInt(process.env.MAP_LIMITE_ORA || '3000', 10),
   day: parseInt(process.env.MAP_LIMITE_GIORNO || '7000', 10),
 };
+// 8 variabili: sotto le 10, ogni punto conta ancora come una chiamata sola
 const MAP_HOURLY_VARS = [
-  'temperature_2m', 'weather_code', 'precipitation_probability', 'precipitation', 'is_day', 'wind_speed_10m',
+  'temperature_2m', 'weather_code', 'precipitation_probability', 'precipitation', 'is_day',
+  'wind_speed_10m', 'wind_direction_10m', 'cloud_cover',
 ];
 
 // Mappe di OpenStreetMap (https://operations.osmfoundation.org/policies/tiles/): poche alla volta,
@@ -208,6 +211,8 @@ function compactPoint(point, hourly) {
     precip: map(h.precipitation, (v) => Math.round(v * 10) / 10),
     is_day: map(h.is_day, (v) => v),
     wind: map(h.wind_speed_10m, Math.round),
+    wind_dir: map(h.wind_direction_10m, Math.round),
+    cloud: map(h.cloud_cover, Math.round),
   };
 }
 
@@ -341,12 +346,35 @@ async function getTile(z, x, y) {
   return tilePending.get(key);
 }
 
+// Solo le scritte della tessera (labels.js), da mettere sopra il disegno del meteo. Si ricavano
+// dalla tessera già in cache: a OpenStreetMap ogni tessera si chiede una volta sola.
+async function getLabels(z, x, y) {
+  const key = `labels/${z}/${x}/${y}`;
+  const hit = tileCache.get(key);
+  if (hit && hit.expires > Date.now()) {
+    storeTile(key, hit);
+    return hit.body;
+  }
+  const base = await getTile(z, x, y);
+  let body;
+  try {
+    body = labelsFromTile(base);
+  } catch (err) {
+    console.error(`[${new Date().toISOString()}] scritte ${z}/${x}/${y}: ${err.message}`);
+    body = EMPTY_TILE;
+  }
+  const entry = tileCache.get(`${z}/${x}/${y}`);
+  storeTile(key, { body, expires: entry ? entry.expires : Date.now() + 86400e3 });
+  return body;
+}
+
 async function serveTile(req, res, match) {
-  const [z, x, y] = match.slice(1).map(Number);
+  const labels = match[1] === 'labels';
+  const [z, x, y] = match.slice(2).map(Number);
   const n = 2 ** z;
   if (z > TILE_MAX_ZOOM || x >= n || y >= n) return send(res, 400, 'Tessera non valida', { 'Content-Type': 'text/plain' });
   try {
-    const body = await getTile(z, x, y);
+    const body = labels ? await getLabels(z, x, y) : await getTile(z, x, y);
     res.writeHead(200, {
       'Content-Type': 'image/png',
       'Content-Length': body.length,
@@ -428,7 +456,7 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === '/healthz') return sendJson(req, res, 200, { ok: true });
 
-  const tile = /^\/tiles\/(\d{1,2})\/(\d{1,7})\/(\d{1,7})\.png$/.exec(url.pathname);
+  const tile = /^\/(tiles|labels)\/(\d{1,2})\/(\d{1,7})\/(\d{1,7})\.png$/.exec(url.pathname);
   if (tile) return serveTile(req, res, tile);
 
   const route = ROUTES[url.pathname];

@@ -1,5 +1,7 @@
 'use strict';
 
+const zlib = require('node:zlib');
+
 // Risposta finta di Open-Meteo, usata dai test (le API reali non servono).
 function forecastFixture() {
   const days = [], hours = [];
@@ -73,6 +75,8 @@ function mapPointFixture(lat, lon) {
       precipitation: H((h, d) => (d === 3 ? 1.234 : 0)),
       is_day: H((h) => (h >= 6 && h < 17 ? 1 : 0)),
       wind_speed_10m: H((h) => 5.6 + h),
+      wind_direction_10m: H((h) => (h * 15 + 0.4) % 360),
+      cloud_cover: H((h, d) => [0, 50, 100, 100, 90, 100, 100, 20][d] - (h % 2 ? 0.4 : 0)),
     },
   };
 }
@@ -82,4 +86,58 @@ function mapFixture(lats, lons) {
   return list.length === 1 ? list[0] : list;
 }
 
-module.exports = { forecastFixture, searchFixture, mapFixture, MAP_START };
+// PNG per i test, con un filtro diverso per ogni riga (0-4) come fanno i PNG veri.
+// color 3: tavolozza (pixel = indice), 2: RGB, 6: RGBA (pixel = elenco di canali).
+function pngFixture(width, height, pixel, { color = 3, palette = [] } = {}) {
+  const channels = color === 3 ? 1 : color === 2 ? 3 : 4;
+  const stride = width * channels;
+  const rows = [];
+  let prev = Buffer.alloc(stride);
+  for (let y = 0; y < height; y++) {
+    const cur = Buffer.alloc(stride);
+    for (let x = 0; x < width; x++) [].concat(pixel(x, y)).forEach((v, k) => { cur[x * channels + k] = v; });
+    const filter = y % 5;
+    const line = Buffer.alloc(stride + 1);
+    line[0] = filter;
+    for (let i = 0; i < stride; i++) {
+      const a = i >= channels ? cur[i - channels] : 0, b = prev[i], c = i >= channels ? prev[i - channels] : 0;
+      let p = 0;
+      if (filter === 1) p = a;
+      else if (filter === 2) p = b;
+      else if (filter === 3) p = (a + b) >> 1;
+      else if (filter === 4) {
+        const q = a + b - c, pa = Math.abs(q - a), pb = Math.abs(q - b), pc = Math.abs(q - c);
+        p = pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+      }
+      line[i + 1] = (cur[i] - p) & 255;
+    }
+    rows.push(line);
+    prev = cur;
+  }
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(zlib.crc32(body));
+    return Buffer.concat([len, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = color;
+  const parts = [Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr)];
+  if (color === 3) parts.push(chunk('PLTE', Buffer.from(palette.flat())));
+  parts.push(chunk('IDAT', zlib.deflateSync(Buffer.concat(rows))), chunk('IEND', Buffer.alloc(0)));
+  return Buffer.concat(parts);
+}
+
+// Tessera come quelle di OpenStreetMap, 16x16: sfondo chiaro, una "scritta" scura 4x4 e una ferrovia grigia
+function mapTileFixture() {
+  return pngFixture(16, 16, (x, y) => (x >= 6 && x <= 9 && y >= 6 && y <= 9 ? 1 : y === 13 ? 2 : 0), {
+    palette: [[242, 239, 233], [34, 34, 34], [112, 112, 112]],
+  });
+}
+
+module.exports = { forecastFixture, searchFixture, mapFixture, MAP_START, pngFixture, mapTileFixture };

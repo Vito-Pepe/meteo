@@ -161,6 +161,8 @@ body.in-map main {
 /* --- disegno del meteo e legenda ------------------------------------- */
 
 .meteo-canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
+/* Scritte sopra il meteo: nere con alone bianco, e col tema scuro il contrario (come la mappa) */
+@media (prefers-color-scheme: dark) { .leaflet-labels-pane { filter: invert(1); } }
 
 /* Stessa altezza per le due legende, così la mappa non cambia misura passando dall'una all'altra */
 .map-legend {

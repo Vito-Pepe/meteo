@@ -21,6 +21,7 @@ Sul Raspberry Pi di casa la pagina è `https://meteo.<tailnet>.ts.net`, dalla ta
 | File | Cosa fa |
 |---|---|
 | `server.js` | Server Node.js senza dipendenze: serve la pagina e fa da proxy con cache verso le API meteo e le mappe |
+| `labels.js` | Le scritte della mappa da mettere sopra il meteo, ricavate dalle tessere di OpenStreetMap (legge e scrive i PNG con zlib) |
 | `public/` | Interfaccia web (HTML, CSS, JavaScript semplice); la mappa è in `meteo-map.js` e `meteo-map.css` |
 | `public/vendor/leaflet/` | Leaflet 1.9.4 (licenza BSD-2, in `LICENSE`), copiato qui così la pagina non dipende da siti esterni |
 | `Dockerfile`, `docker-compose.yml` | Immagine `node:22-alpine`, funziona su Raspberry Pi (arm64 e armv7) |
@@ -83,6 +84,7 @@ L'indirizzo HTTPS, solo dentro la tailnet, viene dal servizio `meteo` della repo
 - Ogni punto arriva con 8 giorni ora per ora (temperatura, tempo, probabilità e millimetri di pioggia, giorno o notte, nuvolosità, velocità e direzione del vento): cambiare giorno e ora non chiede niente al server. Sono 8 variabili: sotto le 10, ogni punto conta come una chiamata sola a Open-Meteo.
 - Il disegno è un canvas in un livello della mappa: sopra le tessere, sotto il punto blu e le schede. Nella vista Tempo si muove al massimo a 30 fotogrammi al secondo e si ferma quando la mappa non si vede. Con "Riduci movimento" del telefono resta fermo.
 - Nella vista Temperatura ogni punto della griglia è un pixel di un'immagine piccolissima, ingrandita con lo sfumato del browser: diventa un campo di colore continuo, senza conti in più.
+- Le scritte della mappa (nomi dei luoghi, strade principali, ferrovie) stanno **sopra** il disegno del meteo, così si leggono anche sotto le nuvole e i colori. Il server le ricava dalla stessa tessera di OpenStreetMap (`/labels/z/x/y.png`, in `labels.js`): tiene solo i pixel scuri, neri con un alone bianco su sfondo trasparente, e col tema scuro si invertono. A OpenStreetMap ogni tessera si chiede una volta sola, per la mappa e per le scritte.
 - La griglia è la stessa a ogni zoom (i punti di uno zoom sono anche in quello dopo): allontanandosi i punti tornano dalla cache. Oltre lo zoom 11 i modelli non hanno più dettaglio e i punti restano quelli.
 - Le mappe passano dal server (`/tiles/z/x/y.png`), che le scarica da OpenStreetMap con il suo User-Agent, quattro alla volta, e le tiene in memoria (fino a 64 MB), come chiedono le [regole d'uso](https://operations.osmfoundation.org/policies/tiles/).
 - Il server non supera i limiti di Open-Meteo: oltre i numeri della tabella risponde "Troppe richieste" e la mappa lo scrive in alto.

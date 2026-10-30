@@ -5,7 +5,7 @@ ENV NODE_ENV=production \
     PORT=8765
 
 WORKDIR /app
-COPY package.json server.js ./
+COPY package.json server.js labels.js ./
 COPY public ./public
 
 USER node

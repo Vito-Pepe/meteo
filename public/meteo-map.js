@@ -26,7 +26,7 @@
     [-10, [49, 54, 149]], [0, [69, 117, 180]], [6, [116, 173, 209]], [11, [171, 217, 233]], [15, [224, 243, 248]],
     [18, [254, 224, 144]], [22, [253, 174, 97]], [27, [244, 109, 67]], [32, [215, 48, 39]], [38, [165, 0, 38]],
   ];
-  var TEMP_ALPHA = 150; // su 255: sotto i colori la mappa si vede ancora
+  var TEMP_ALPHA = 135; // su 255: sotto i colori la mappa si vede ancora
   var TEMP_MIN = -10, TEMP_MAX = 40; // estremi della legenda
 
   var $ = function (id) { return document.getElementById(id); };
@@ -366,7 +366,7 @@
       var set = w.storm ? sprites.stormCloud : w.rain || w.snow ? sprites.rainCloud : sprites.cloud;
       var period = 18 / (0.6 + Math.min(w.wind, 40) / 25); // secondi per una corsa: più vento, più veloci
       var drift = S * 0.35;
-      var base = (0.25 + 0.4 * w.cloud) * (w.day ? 1 : 0.85); // anche sotto il coperto la mappa si legge
+      var base = (0.2 + 0.38 * w.cloud) * (w.day ? 1 : 0.85); // anche sotto il coperto la mappa si vede
       it.puffs.forEach(function (pf) {
         var W = S * (0.75 + 0.85 * w.cloud) * pf.size * (w.storm ? 1.15 : 1), H = (W * 200) / 256;
         for (var copy = 0; copy < 2; copy++) {
@@ -711,10 +711,16 @@
       attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' +
         ' · Meteo <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>',
     }).addTo(map);
-    // Il disegno del meteo: sopra le mappe (200), sotto il punto blu (400) e le schede dei punti (700)
+    // Il disegno del meteo: sopra le mappe (200), sotto le scritte (380), il punto blu (400) e le schede (700)
     var pane = map.createPane('meteo');
     pane.style.zIndex = 350;
     pane.style.pointerEvents = 'none';
+    // Le scritte della mappa (nomi dei luoghi, strade principali, ferrovie) sopra il meteo: il server
+    // le ricava dalla stessa tessera, nere con un alone bianco su sfondo trasparente (labels.js)
+    var names = map.createPane('labels');
+    names.style.zIndex = 380;
+    names.style.pointerEvents = 'none';
+    L.tileLayer('/labels/{z}/{x}/{y}.png', { pane: 'labels', minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM, noWrap: true }).addTo(map);
     canvas = L.DomUtil.create('canvas', 'meteo-canvas', pane);
     ctx = canvas.getContext('2d');
     makeSprites();

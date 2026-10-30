@@ -4,7 +4,8 @@ const test = require('node:test');
 const assert = require('node:assert');
 const http = require('node:http');
 const zlib = require('node:zlib');
-const { forecastFixture, searchFixture, mapFixture, MAP_START } = require('./fixture');
+const { forecastFixture, searchFixture, mapFixture, MAP_START, pngFixture, mapTileFixture } = require('./fixture');
+const labels = require('../labels');
 
 // Limite basso per provare il blocco delle richieste della mappa (va deciso prima di caricare il server).
 process.env.MAP_LIMITE_MINUTO = '60';
@@ -17,11 +18,12 @@ global.fetch = async (url, options) => {
   const u = new URL(url);
   if (u.host === 'tile.openstreetmap.org') {
     if (u.pathname === '/3/1/1.png') return { ok: false, status: 404 };
+    const png = u.pathname === '/6/30/20.png' ? mapTileFixture() : Buffer.from('finto-png');
     return {
       ok: true,
       status: 200,
       headers: new Headers({ 'cache-control': 'max-age=604800' }),
-      arrayBuffer: async () => new TextEncoder().encode('finto-png').buffer,
+      arrayBuffer: async () => png.buffer.slice(png.byteOffset, png.byteOffset + png.length),
     };
   }
   let body;
@@ -192,4 +194,49 @@ test('risposte compresse con gzip, se il browser le accetta', async () => {
   assert.match(zlib.gunzipSync(js.buffer).toString(), /Leaflet/);
   assert.strictEqual((await get('/healthz', gz)).headers['content-encoding'], undefined, 'le risposte piccole no');
   assert.strictEqual((await get('/api/map?points=45.46,9.19')).headers['content-encoding'], undefined);
+});
+
+const pixel = (img, x, y) => Array.from(img.rgba.slice((y * img.width + x) * 4, (y * img.width + x) * 4 + 4));
+
+test('PNG: legge tavolozza, RGB e RGBA con tutti i filtri, e scrive PNG che rilegge uguali', () => {
+  const pal = labels.decodePng(mapTileFixture());
+  assert.strictEqual(pal.width, 16);
+  assert.deepStrictEqual(pixel(pal, 0, 0), [242, 239, 233, 255]);
+  assert.deepStrictEqual(pixel(pal, 7, 7), [34, 34, 34, 255]);
+  assert.deepStrictEqual(pixel(pal, 3, 13), [112, 112, 112, 255]);
+  const rgb = labels.decodePng(pngFixture(7, 6, (x, y) => [x * 30, y * 40, (x + y) * 10], { color: 2 }));
+  assert.deepStrictEqual(pixel(rgb, 5, 4), [150, 160, 90, 255]);
+  const rgba = labels.decodePng(pngFixture(5, 6, (x, y) => [x, y, 7, x * 50], { color: 6 }));
+  assert.deepStrictEqual(pixel(rgba, 4, 3), [4, 3, 7, 200]);
+  const back = labels.decodePng(labels.encodePng(rgba.width, rgba.height, rgba.rgba));
+  assert.deepStrictEqual(Array.from(back.rgba), Array.from(rgba.rgba));
+  assert.throws(() => labels.decodePng(Buffer.from('finto-png')), /non è un PNG/);
+});
+
+test('scritte della mappa: nere, con alone bianco, sfondo trasparente, una sola richiesta a OSM', async () => {
+  const before = calls.length;
+  assert.strictEqual((await get('/tiles/6/30/20.png')).status, 200);
+  const r = await get('/labels/6/30/20.png');
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual(r.type, 'image/png');
+  assert.strictEqual(calls.length - before, 1, 'mappa e scritte dalla stessa tessera');
+  const img = labels.decodePng(r.buffer);
+  assert.deepStrictEqual(pixel(img, 7, 7), [0, 0, 0, 255], 'scritta nera e piena');
+  const halo = pixel(img, 4, 7);
+  assert.deepStrictEqual(halo.slice(0, 3), [255, 255, 255], 'alone bianco');
+  assert.ok(halo[3] > 200 && halo[3] < 230, 'alone quasi pieno: ' + halo[3]);
+  assert.strictEqual(pixel(img, 0, 0)[3], 0, 'sfondo trasparente');
+  assert.strictEqual(pixel(img, 3, 7)[3], 0, 'oltre l\'alone, trasparente');
+  const rail = pixel(img, 1, 13);
+  assert.ok(rail[3] > 90 && rail[0] < 128, 'la ferrovia grigia resta, più leggera: ' + rail);
+});
+
+test('scritte: se la tessera non si legge arriva una tessera trasparente', async () => {
+  const r = await get('/labels/5/16/11.png');
+  assert.strictEqual(r.status, 200);
+  const img = labels.decodePng(r.buffer);
+  assert.strictEqual(img.width, 256);
+  assert.ok(img.rgba.every((v, i) => i % 4 !== 3 || v === 0));
+  assert.strictEqual((await get('/labels/3/1/1.png')).status, 404);
+  assert.strictEqual((await get('/labels/20/0/0.png')).status, 400);
 });

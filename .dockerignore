@@ -3,3 +3,6 @@ node_modules
 test
 *.md
 docker-compose.yml
+update.sh
+update.log
+.env

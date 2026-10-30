@@ -9,6 +9,8 @@ Stazione meteo self-hosted: una pagina web che mostra il meteo della tua posizio
 
 Dati da [Open-Meteo](https://open-meteo.com) (gratuito, senza API key) e nomi delle località da OpenStreetMap/Nominatim.
 
+Sul Raspberry Pi di casa la pagina è `https://meteo.<tailnet>.ts.net`, dalla tailnet (indirizzo della repo `ingressi-https`). Si apre anche dal riquadro **Meteo** della homepage.
+
 ## Struttura
 
 | File | Cosa fa |
@@ -16,11 +18,20 @@ Dati da [Open-Meteo](https://open-meteo.com) (gratuito, senza API key) e nomi de
 | `server.js` | Server Node.js senza dipendenze: serve la pagina e fa da proxy con cache (10 min) verso le API meteo |
 | `public/` | Interfaccia web (HTML, CSS, JavaScript semplice) |
 | `Dockerfile`, `docker-compose.yml` | Immagine `node:22-alpine`, funziona su Raspberry Pi (arm64 e armv7) |
+| `update.sh` | Aggiorna l'app sul Pi quando su `main` ci sono commit nuovi (da cron, ogni 5 minuti) |
 | `test/` | Test del server (`npm test`) |
+| `CLAUDE.md` | Istruzioni per Claude Code: infrastruttura del Pi e come lavorare su questa repo |
 
-## Installazione sul Raspberry
+## Sul Raspberry Pi
+
+Sul Pi di casa l'app è già installata nella cartella `~/parole/meteo` (progetto compose e container `meteo`, porta 8765): non va installata una seconda volta.
+
+### Installazione
+
+Su un Pi nuovo:
 
 ```bash
+cd ~
 git clone https://github.com/Vito-Pepe/meteo.git
 cd meteo
 
@@ -28,13 +39,28 @@ cd meteo
 sudo ss -tlnp | grep ':8765 '
 
 docker compose up -d --build
+curl -s http://127.0.0.1:8765/healthz
 ```
 
-La pagina è su `http://<ip-del-raspberry>:8765` oppure `http://<nome-tailscale>:8765`.
+Risposta attesa: `{"ok":true}`.
 
-Se la porta 8765 è occupata, cambia la **prima** parte di `ports` in `docker-compose.yml` (per esempio `"8790:8765"`).
+Su un Pi con altre app controlla prima che porta e nomi siano liberi in `INFRASTRUTTURA-PI.md` (repo `sillabe`). Per cambiare porta: la **prima** parte di `ports` in `docker-compose.yml` (per esempio `"8790:8765"`) e la stessa porta in `serve/meteo.json` della repo `ingressi-https`.
 
-Per aggiornare: `git pull && docker compose up -d --build`.
+### Aggiornamenti
+
+`update.sh` controlla se su GitHub ci sono commit nuovi e solo in quel caso aggiorna la cartella e ricostruisce il container. Gira da cron ogni 5 minuti, **senza `sudo`**: con `sudo` la cartella `.git` diventa di root e gli aggiornamenti si rompono.
+
+```bash
+(crontab -l 2>/dev/null; echo "*/5 * * * * cd $HOME/parole/meteo && ./update.sh >> $HOME/parole/meteo/update.log 2>&1") | crontab -
+```
+
+Con l'installazione in `~/meteo` il percorso è `$HOME/meteo`. Per aggiornare subito: `./update.sh`.
+
+### Indirizzo HTTPS
+
+I browser concedono la posizione **solo a pagine HTTPS** (o `localhost`): aprendo `http://…:8765` la ricerca funziona, ma il pulsante "usa la mia posizione" no.
+
+L'indirizzo HTTPS, solo dentro la tailnet, viene dal servizio `meteo` della repo `ingressi-https` (`serve/meteo.json` → `http://127.0.0.1:8765`): vedi il suo README. **Non usare `tailscale serve` sul Pi**: una regola sull'host sostituisce quella già presente sulla stessa porta, ed è già successo che la homepage sparisse.
 
 ### Variabili d'ambiente
 
@@ -42,24 +68,6 @@ Per aggiornare: `git pull && docker compose up -d --build`.
 |---|---|---|
 | `PORT` | `8765` | Porta interna del container |
 | `CACHE_TTL_SECONDS` | `600` | Durata della cache delle risposte meteo |
-
-## Posizione automatica: serve HTTPS
-
-I browser concedono la posizione **solo a pagine HTTPS** (o `localhost`). Aprendo `http://…:8765` la ricerca funziona, ma il pulsante "usa la mia posizione" no.
-
-Con Tailscale si risolve in un comando sul Raspberry, che pubblica l'app in HTTPS **solo dentro la tua tailnet**:
-
-```bash
-sudo tailscale serve --bg --https=443 http://127.0.0.1:8765
-```
-
-Poi apri `https://<nome-raspberry>.<tua-tailnet>.ts.net`. Il certificato è valido e il browser chiederà il permesso per la posizione.
-
-Prerequisiti (una tantum, dal pannello di amministrazione di Tailscale → DNS): **MagicDNS** e **HTTPS Certificates** attivi.
-
-Se sulla porta 443 c'è già un'altra app servita così, usa un'altra porta HTTPS, per esempio `--https=8443`, e apri `https://<nome>.ts.net:8443`.
-
-Per vedere o rimuovere la configurazione: `tailscale serve status`, `sudo tailscale serve --https=443 off`.
 
 ## Sviluppo
 

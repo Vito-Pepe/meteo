@@ -369,8 +369,28 @@
     closeResults();
     $('search-input').value = '';
     $('search-input').blur();
+    setSearching(false);
     loadPlace({ name: r.name, region: r.region, latitude: r.latitude, longitude: r.longitude });
   }
+
+  // Nella vista mappa, sul telefono, il campo di ricerca si apre con la lente: così la barra in alto
+  // sta su una riga e la mappa ha più spazio (meteo-map.css).
+  function setSearching(open) {
+    var btn = $('search-toggle');
+    document.body.classList.toggle('searching', open);
+    btn.setAttribute('aria-expanded', String(open));
+    btn.setAttribute('aria-label', open ? 'Chiudi la ricerca' : 'Cerca una località');
+    btn.title = btn.getAttribute('aria-label');
+    if (open) $('search-input').focus();
+    else {
+      closeResults();
+      $('search-input').value = '';
+    }
+  }
+
+  $('search-toggle').addEventListener('click', function () {
+    setSearching(!document.body.classList.contains('searching'));
+  });
 
   function search(q) {
     var seq = ++searchSeq;
@@ -398,7 +418,7 @@
     var selectable = results.filter(function (r) { return !r.empty; }).length;
     if (e.key === 'ArrowDown' && selectable) { active = (active + 1) % selectable; renderResults(); e.preventDefault(); }
     else if (e.key === 'ArrowUp' && selectable) { active = (active - 1 + selectable) % selectable; renderResults(); e.preventDefault(); }
-    else if (e.key === 'Escape') closeResults();
+    else if (e.key === 'Escape') { closeResults(); if (document.body.classList.contains('searching')) setSearching(false); }
   });
 
   $('search-form').addEventListener('submit', function (e) {
@@ -433,6 +453,7 @@
     $('view-forecast').hidden = isMap;
     $('view-map').hidden = !isMap;
     document.body.classList.toggle('in-map', isMap);
+    if (document.body.classList.contains('searching')) setSearching(false);
     $('tab-forecast').setAttribute('aria-current', isMap ? 'false' : 'page');
     $('tab-map').setAttribute('aria-current', isMap ? 'page' : 'false');
     if (isMap && window.MeteoMap) window.MeteoMap.show();

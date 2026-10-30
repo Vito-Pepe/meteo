@@ -715,12 +715,17 @@
     var pane = map.createPane('meteo');
     pane.style.zIndex = 350;
     pane.style.pointerEvents = 'none';
-    // Le scritte della mappa (nomi dei luoghi, strade principali, ferrovie) sopra il meteo: il server
-    // le ricava dalla stessa tessera, nere con un alone bianco su sfondo trasparente (labels.js)
+    // Le scritte della mappa (nomi dei luoghi) sopra il meteo: il server le ricava dalla stessa tessera,
+    // nere con un alone bianco su sfondo trasparente, e per gli schermi dei telefoni le ricostruisce a
+    // 2x o 3x, che altrimenti si vedrebbero ingrandite e sgranate (labels.js)
     var names = map.createPane('labels');
     names.style.zIndex = 380;
     names.style.pointerEvents = 'none';
-    L.tileLayer('/labels/{z}/{x}/{y}.png', { pane: 'labels', minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM, noWrap: true }).addTo(map);
+    var ratio = window.devicePixelRatio || 1;
+    L.tileLayer('/labels/{z}/{x}/{y}{scala}.png', {
+      pane: 'labels', minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM, noWrap: true,
+      scala: ratio > 2.25 ? '@3x' : ratio > 1.25 ? '@2x' : '',
+    }).addTo(map);
     canvas = L.DomUtil.create('canvas', 'meteo-canvas', pane);
     ctx = canvas.getContext('2d');
     makeSprites();

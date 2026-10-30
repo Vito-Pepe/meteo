@@ -133,10 +133,21 @@ function pngFixture(width, height, pixel, { color = 3, palette = [] } = {}) {
   return Buffer.concat(parts);
 }
 
-// Tessera come quelle di OpenStreetMap, 16x16: sfondo chiaro, una "scritta" scura 4x4 e una ferrovia grigia
+// Tessera come quelle di OpenStreetMap, 32x32, sfondo chiaro: una "scritta" scura 4x4 con accanto
+// una lettera sottile (la "l", a cavallo di due pixel) e il pezzo grigio chiaro del bordo di una
+// strada piccola, poi una ferrovia grigia, il bordo colorato di una strada e una macchia grigia
+// lontana dal testo
 function mapTileFixture() {
-  return pngFixture(16, 16, (x, y) => (x >= 6 && x <= 9 && y >= 6 && y <= 9 ? 1 : y === 13 ? 2 : 0), {
-    palette: [[242, 239, 233], [34, 34, 34], [112, 112, 112]],
+  return pngFixture(32, 32, (x, y) => {
+    if (x >= 6 && x <= 9 && y >= 6 && y <= 9) return 1;
+    if (x === 12 && y >= 5 && y <= 10) return 3;
+    if (x === 4 && y >= 5 && y <= 9) return 5;
+    if (y === 20) return 2;
+    if (x === 26) return 4;
+    if (x >= 2 && x <= 3 && y >= 28 && y <= 29) return 5;
+    return 0;
+  }, {
+    palette: [[242, 239, 233], [34, 34, 34], [112, 112, 112], [118, 118, 118], [160, 107, 0], [143, 143, 143]],
   });
 }
 

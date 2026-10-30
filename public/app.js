@@ -109,6 +109,7 @@
   function loadPlace(place, opts) {
     opts = opts || {};
     state.place = place;
+    if (window.MeteoMap) window.MeteoMap.setPlace(place);
     if (!opts.keepDay) state.day = 0;
     state.loading = true;
     if (!state.data || !opts.silent) {
@@ -144,13 +145,7 @@
         var lon = Math.round(pos.coords.longitude * 1000) / 1000;
         var place = { name: 'La tua posizione', region: lat + ', ' + lon, latitude: lat, longitude: lon, gps: true };
         loadPlace(place);
-        getJson('/api/reverse?lat=' + lat + '&lon=' + lon).then(function (r) {
-          if (!r.name || state.place !== place) return;
-          place.name = r.name;
-          place.region = r.region;
-          savePlace(place);
-          renderPlace();
-        }).catch(function () { /* resta "La tua posizione" */ });
+        nameFromPosition(place);
       },
       function (err) {
         var why = err.code === 1 ? 'Accesso alla posizione negato.' : 'Posizione non disponibile.';
@@ -158,6 +153,17 @@
       },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 10 * 60 * 1000 }
     );
+  }
+
+  // Il nome del luogo arriva dopo le previsioni: intanto resta quello provvisorio.
+  function nameFromPosition(place) {
+    getJson('/api/reverse?lat=' + place.latitude + '&lon=' + place.longitude).then(function (r) {
+      if (!r.name || state.place !== place) return;
+      place.name = r.name;
+      place.region = r.region;
+      savePlace(place);
+      renderPlace();
+    }).catch(function () { /* resta il nome provvisorio */ });
   }
 
   function noLocation(reason) {
@@ -419,6 +425,40 @@
       else noLocation(reason);
     });
   });
+
+  // --- viste: previsioni e mappa ------------------------------------------
+
+  function showView() {
+    var isMap = location.hash === '#mappa';
+    $('view-forecast').hidden = isMap;
+    $('view-map').hidden = !isMap;
+    document.body.classList.toggle('in-map', isMap);
+    $('tab-forecast').setAttribute('aria-current', isMap ? 'false' : 'page');
+    $('tab-map').setAttribute('aria-current', isMap ? 'page' : 'false');
+    if (isMap && window.MeteoMap) window.MeteoMap.show();
+  }
+
+  // Dalla mappa: le previsioni del punto toccato, con il nome del luogo appena arriva.
+  function openPoint(lat, lon) {
+    lat = Math.round(lat * 1000) / 1000;
+    lon = Math.round(lon * 1000) / 1000;
+    var place = { name: 'Punto sulla mappa', region: lat + ', ' + lon, latitude: lat, longitude: lon };
+    location.hash = '';
+    loadPlace(place);
+    nameFromPosition(place);
+  }
+
+  window.addEventListener('hashchange', showView);
+  // meteo-map.js si carica dopo questo file: la vista giusta si mostra quando ci sono tutti e due.
+  document.addEventListener('DOMContentLoaded', showView);
+
+  window.MeteoApp = {
+    wmo: wmo,
+    esc: esc,
+    getJson: getJson,
+    place: function () { return state.place; },
+    openPoint: openPoint,
+  };
 
   // --- avvio ------------------------------------------------------------
 

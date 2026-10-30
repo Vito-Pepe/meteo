@@ -1,0 +1,170 @@
+/* --- schede: previsioni e mappa -------------------------------------- */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  max-width: 760px;
+  margin: 10px auto 0;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+.tab {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 9px;
+  color: var(--muted);
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+.tab[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+
+/* --- vista mappa: tutto lo schermo sotto la barra -------------------- */
+
+body.in-map {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+body.in-map main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  padding: 0;
+}
+
+.view-map { position: relative; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.view-map[hidden] { display: none; }
+
+/* Stato e "Torna ad adesso" stanno sopra la mappa, così la sua altezza non cambia mai.
+   isolation: i livelli di Leaflet restano sotto la barra e i risultati della ricerca. */
+.map-wrap { position: relative; flex: 1; min-height: 200px; }
+.map { position: absolute; inset: 0; isolation: isolate; background: var(--bg); }
+.leaflet-container { font-family: inherit; }
+
+.map-status {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 1;
+  transform: translateX(-50%);
+  max-width: calc(100% - 120px);
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.85rem;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
+  pointer-events: none;
+}
+.map-status[hidden] { display: none; }
+
+/* --- giorno e ora ---------------------------------------------------- */
+
+.map-controls {
+  flex: none;
+  padding: 10px 16px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+.map-days {
+  display: flex;
+  gap: 6px;
+  max-width: 760px;
+  margin: 0 auto;
+  padding-bottom: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.map-days::-webkit-scrollbar { display: none; }
+.map-day {
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.map-day.active { border-color: var(--accent); background: var(--accent); color: #fff; }
+
+.map-hour { display: flex; align-items: center; gap: 8px; max-width: 760px; margin: 0 auto; }
+.map-hour input[type="range"] { flex: 1; min-width: 0; height: 32px; margin: 0; accent-color: var(--accent); }
+.map-hour .icon-btn { width: 36px; height: 36px; font-size: 1.3rem; font-weight: 700; line-height: 1; }
+.map-hour .icon-btn:disabled { opacity: 0.4; cursor: default; }
+.map-hour-text { min-width: 3.2em; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+
+.map-now {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  z-index: 1;
+  transform: translateX(-50%);
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.25);
+  cursor: pointer;
+}
+.map-now[hidden] { display: none; }
+
+/* --- simboli sulla mappa --------------------------------------------- */
+
+.mm-point { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; cursor: pointer; }
+.mm-icon { font-size: 24px; line-height: 1; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35)); }
+.mm-temp {
+  min-width: 34px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+.mm-point.mm-empty .mm-temp { background: rgba(255, 255, 255, 0.75); color: #64748b; }
+
+/* --- scheda del punto ------------------------------------------------ */
+
+.leaflet-popup-content { margin: 12px 14px; font-size: 0.9rem; line-height: 1.4; }
+.mm-pop p { margin: 4px 0 0; }
+.mm-pop-when { margin-bottom: 4px; color: var(--muted); font-size: 0.8rem; }
+.mm-pop-main { display: flex; align-items: center; gap: 8px; font-size: 1rem; }
+.mm-pop-icon { font-size: 1.8rem; line-height: 1; }
+.mm-pop-row { margin-top: 2px; }
+.mm-pop-btn { width: 100%; margin-top: 10px; padding: 8px 12px; }
+
+/* --- tema scuro: mappa scurita, schede e controlli come il resto ----- */
+
+@media (prefers-color-scheme: dark) {
+  .leaflet-container { background: #0b1120; }
+  .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.85); }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--card); color: var(--text); }
+  .leaflet-container a.leaflet-popup-close-button { color: var(--muted); }
+  .leaflet-bar a, .leaflet-bar a:hover { border-bottom-color: var(--border); background: var(--card); color: var(--text); }
+  .leaflet-control-attribution.leaflet-control { background: rgba(19, 28, 46, 0.85); color: var(--muted); }
+  .leaflet-control-attribution a { color: var(--accent); }
+}

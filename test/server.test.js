@@ -3,14 +3,33 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const http = require('node:http');
-const { forecastFixture, searchFixture } = require('./fixture');
+const zlib = require('node:zlib');
+const { forecastFixture, searchFixture, mapFixture, MAP_START } = require('./fixture');
+
+// Limite basso per provare il blocco delle richieste della mappa (va deciso prima di caricare il server).
+process.env.MAP_LIMITE_MINUTO = '60';
 
 const calls = [];
-global.fetch = async (url) => {
+let lastOptions = null;
+global.fetch = async (url, options) => {
   calls.push(String(url));
+  lastOptions = options;
   const u = new URL(url);
+  if (u.host === 'tile.openstreetmap.org') {
+    if (u.pathname === '/3/1/1.png') return { ok: false, status: 404 };
+    return {
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'cache-control': 'max-age=604800' }),
+      arrayBuffer: async () => new TextEncoder().encode('finto-png').buffer,
+    };
+  }
   let body;
-  if (u.host === 'api.open-meteo.com') body = forecastFixture();
+  if (u.host === 'api.open-meteo.com' && u.searchParams.get('timeformat') === 'unixtime') {
+    if (u.searchParams.get('latitude') === '10.5') return { ok: false, status: 429, json: async () => ({}) };
+    const nums = (k) => u.searchParams.get(k).split(',').map(Number);
+    body = mapFixture(nums('latitude'), nums('longitude'));
+  } else if (u.host === 'api.open-meteo.com') body = forecastFixture();
   else if (u.host === 'geocoding-api.open-meteo.com') body = searchFixture;
   else if (u.host === 'nominatim.openstreetmap.org') body = { address: { town: 'Frascati', state: 'Lazio', country: 'Italia' } };
   else throw new Error('host inatteso ' + u.host);
@@ -26,11 +45,14 @@ test.before(() => new Promise((resolve) => {
 test.after(() => server.close());
 
 // fetch globale è finto (verso le API esterne): col server di test si parla via http.
-const get = (p) => new Promise((resolve, reject) => {
-  http.get(base + p, (res) => {
-    let text = '';
-    res.on('data', (c) => (text += c));
-    res.on('end', () => resolve({ status: res.statusCode, type: res.headers['content-type'], text }));
+const get = (p, headers = {}) => new Promise((resolve, reject) => {
+  http.get(base + p, { headers }, (res) => {
+    const chunks = [];
+    res.on('data', (c) => chunks.push(c));
+    res.on('end', () => {
+      const buffer = Buffer.concat(chunks);
+      resolve({ status: res.statusCode, type: res.headers['content-type'], headers: res.headers, buffer, text: buffer.toString() });
+    });
   }).on('error', reject);
 });
 
@@ -81,4 +103,84 @@ test('coordinate non valide', async () => {
 test('nome dalla posizione', async () => {
   const body = JSON.parse((await get('/api/reverse?lat=41.8&lon=12.68')).text);
   assert.deepStrictEqual(body, { name: 'Frascati', region: 'Lazio, Italia' });
+});
+
+test('mappa: punti in un solo gruppo, arrotondati e in cache', async () => {
+  const before = calls.length;
+  const r = await get('/api/map?points=45.461,9.19;41.9,12.5;45.459,9.191');
+  assert.strictEqual(r.status, 200);
+  const body = JSON.parse(r.text);
+  assert.deepStrictEqual(body.points.map((p) => [p.lat, p.lon]), [[45.46, 9.19], [41.9, 12.5]], 'arrotondati e senza doppioni');
+  assert.strictEqual(calls.length - before, 1, 'un solo gruppo verso Open-Meteo');
+  const u = new URL(calls[calls.length - 1]);
+  assert.strictEqual(u.searchParams.get('latitude'), '45.46,41.9');
+  assert.strictEqual(u.searchParams.get('longitude'), '9.19,12.5');
+  assert.strictEqual(u.searchParams.get('forecast_days'), '8');
+  assert.strictEqual(u.searchParams.get('timeformat'), 'unixtime');
+  const p = body.points[0];
+  assert.strictEqual(p.start, MAP_START);
+  assert.strictEqual(p.temperature.length, 192);
+  assert.ok(p.temperature.every(Number.isInteger), 'temperature intere');
+  assert.strictEqual(p.precip[72], 1.2, 'pioggia a un decimale');
+  assert.deepStrictEqual([p.code[0], p.is_day[12], p.wind[23], p.precip_prob[72]], [0, 1, 29, 80]);
+
+  // Di nuovo, con un punto nuovo: a Open-Meteo va solo quello (e risponde con un oggetto, non un elenco)
+  const r2 = await get('/api/map?points=45.46,9.19;41.9,12.5;44.5,11.34');
+  assert.deepStrictEqual(JSON.parse(r2.text).points.map((q) => q.lat), [45.46, 41.9, 44.5]);
+  assert.strictEqual(calls.length - before, 2);
+  assert.strictEqual(new URL(calls[calls.length - 1]).searchParams.get('latitude'), '44.5');
+});
+
+test('mappa: punti non validi', async () => {
+  assert.strictEqual((await get('/api/map')).status, 400);
+  assert.strictEqual((await get('/api/map?points=95,10')).status, 400);
+  assert.strictEqual((await get('/api/map?points=45,abc')).status, 400);
+  assert.strictEqual((await get('/api/map?points=45')).status, 400);
+  const tanti = Array.from({ length: 101 }, (_, i) => `40,${i}`).join(';');
+  assert.strictEqual((await get('/api/map?points=' + tanti)).status, 400);
+});
+
+test('mappa: rispetta il limite di richieste verso Open-Meteo', async () => {
+  const before = calls.length;
+  const tanti = Array.from({ length: 60 }, (_, i) => `30,${i}`).join(';');
+  const r = await get('/api/map?points=' + tanti);
+  assert.strictEqual(r.status, 429);
+  assert.match(JSON.parse(r.text).error, /Troppe richieste/);
+  assert.strictEqual(calls.length, before, 'niente richieste oltre il limite');
+  assert.strictEqual((await get('/api/map?points=45.46,9.19')).status, 200, 'i punti in cache si leggono lo stesso');
+});
+
+test('mappa: il 429 di Open-Meteo arriva come 429', async () => {
+  const r = await get('/api/map?points=10.5,10.5');
+  assert.strictEqual(r.status, 429);
+  assert.match(JSON.parse(r.text).error, /troppe richieste/i);
+});
+
+test('tessere della mappa: User-Agent, cache e controlli', async () => {
+  const before = calls.length;
+  const r = await get('/tiles/5/16/11.png');
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual(r.type, 'image/png');
+  assert.strictEqual(r.text, 'finto-png');
+  assert.match(r.headers['cache-control'], /max-age=86400/);
+  assert.strictEqual(calls[calls.length - 1], 'https://tile.openstreetmap.org/5/16/11.png');
+  assert.match(lastOptions.headers['User-Agent'], /meteo-station/);
+  assert.strictEqual((await get('/tiles/5/16/11.png')).text, 'finto-png');
+  assert.strictEqual(calls.length - before, 1, 'la seconda volta dalla cache');
+  assert.strictEqual((await get('/tiles/5/32/11.png')).status, 400, 'x fuori dalla mappa');
+  assert.strictEqual((await get('/tiles/20/0/0.png')).status, 400, 'zoom troppo alto');
+  assert.strictEqual((await get('/tiles/3/1/1.png')).status, 404);
+});
+
+test('risposte compresse con gzip, se il browser le accetta', async () => {
+  const gz = { 'Accept-Encoding': 'gzip, deflate, br' };
+  const r = await get('/api/map?points=45.46,9.19', gz);
+  assert.strictEqual(r.headers['content-encoding'], 'gzip');
+  assert.strictEqual(JSON.parse(zlib.gunzipSync(r.buffer)).points.length, 1);
+  const js = await get('/vendor/leaflet/leaflet.js', gz);
+  assert.strictEqual(js.status, 200);
+  assert.match(js.type, /javascript/);
+  assert.match(zlib.gunzipSync(js.buffer).toString(), /Leaflet/);
+  assert.strictEqual((await get('/healthz', gz)).headers['content-encoding'], undefined, 'le risposte piccole no');
+  assert.strictEqual((await get('/api/map?points=45.46,9.19')).headers['content-encoding'], undefined);
 });

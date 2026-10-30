@@ -130,7 +130,7 @@ main {
   padding: 18px;
   margin-bottom: 16px;
   box-shadow: var(--shadow);
-  scroll-margin-top: 76px;
+  scroll-margin-top: 128px; /* sotto la barra in alto, con ricerca e schede */
 }
 .card > h2, .section-head { margin-bottom: 12px; }
 .section-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }

@@ -75,7 +75,7 @@ L'indirizzo HTTPS, solo dentro la tailnet, viene dal servizio `meteo` della repo
 
 ## Come funziona la mappa
 
-- La pagina mette una griglia di punti sulla parte visibile, a circa 100 pixel l'uno dall'altro, e chiede `/api/map?points=lat,lon;lat,lon;…` (al massimo 100 punti). Il server li chiede a Open-Meteo tutti insieme, in una sola richiesta, e li tiene un'ora.
+- La pagina mette una griglia di punti sulla parte visibile, a circa 100 pixel l'uno dall'altro, e chiede `/api/map?points=lat,lon;lat,lon;…` (al massimo 100 punti, con `;` e `,` codificati: il proxy HTTPS di Tailscale toglie i parametri con `;`). Il server li chiede a Open-Meteo tutti insieme, in una sola richiesta, e li tiene un'ora.
 - Ogni punto arriva con 8 giorni ora per ora (temperatura, simbolo, probabilità e millimetri di pioggia, giorno o notte, vento): cambiare giorno e ora non chiede niente al server.
 - La griglia è la stessa a ogni zoom (i punti di uno zoom sono anche in quello dopo): allontanandosi i punti tornano dalla cache. Oltre lo zoom 11 i modelli non hanno più dettaglio e i punti restano quelli.
 - Le mappe passano dal server (`/tiles/z/x/y.png`), che le scarica da OpenStreetMap con il suo User-Agent, quattro alla volta, e le tiene in memoria (fino a 64 MB), come chiedono le [regole d'uso](https://operations.osmfoundation.org/policies/tiles/).

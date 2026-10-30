@@ -7,7 +7,9 @@
   <title>Meteo</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="meteo-map.css?v=1">
 </head>
 <body>
   <header class="topbar">
@@ -18,39 +20,64 @@
       </button>
       <ul id="search-results" class="results" role="listbox" hidden></ul>
     </form>
+    <nav class="tabs" aria-label="Viste">
+      <a href="#" id="tab-forecast" class="tab">Previsioni</a>
+      <a href="#mappa" id="tab-map" class="tab">Mappa</a>
+    </nav>
   </header>
 
   <main id="app">
-    <section id="message" class="message" hidden></section>
+    <div id="view-forecast">
+      <section id="message" class="message" hidden></section>
 
-    <section id="weather" hidden>
-      <div class="place">
-        <h1 id="place-name"></h1>
-        <p id="place-region" class="muted"></p>
-      </div>
-
-      <article id="now" class="card now"></article>
-
-      <section class="card">
-        <div class="section-head">
-          <h2 id="day-title">Oggi, ora per ora</h2>
-          <p id="day-summary" class="muted small"></p>
+      <section id="weather" hidden>
+        <div class="place">
+          <h1 id="place-name"></h1>
+          <p id="place-region" class="muted"></p>
         </div>
-        <div id="day-stats" class="stats"></div>
-        <div id="hours" class="hours"></div>
-      </section>
 
-      <section class="card">
-        <h2>Prossimi 7 giorni</h2>
-        <ul id="week" class="week"></ul>
-      </section>
+        <article id="now" class="card now"></article>
 
-      <p class="muted small footer">
-        Aggiornato alle <span id="updated"></span> · Dati <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>
-      </p>
+        <section class="card">
+          <div class="section-head">
+            <h2 id="day-title">Oggi, ora per ora</h2>
+            <p id="day-summary" class="muted small"></p>
+          </div>
+          <div id="day-stats" class="stats"></div>
+          <div id="hours" class="hours"></div>
+        </section>
+
+        <section class="card">
+          <h2>Prossimi 7 giorni</h2>
+          <ul id="week" class="week"></ul>
+        </section>
+
+        <p class="muted small footer">
+          Aggiornato alle <span id="updated"></span> · Dati <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>
+        </p>
+      </section>
+    </div>
+
+    <section id="view-map" class="view-map" hidden>
+      <div class="map-wrap">
+        <div id="map" class="map" aria-label="Mappa del meteo"></div>
+        <p id="map-status" class="map-status" role="status" hidden></p>
+        <button type="button" id="map-now" class="map-now" hidden>Torna ad adesso</button>
+      </div>
+      <div class="map-controls">
+        <div id="map-days" class="map-days" role="group" aria-label="Giorno"></div>
+        <div class="map-hour">
+          <button type="button" id="map-prev" class="icon-btn" aria-label="Un'ora prima">‹</button>
+          <input type="range" id="map-hour" min="0" max="23" step="1" aria-label="Ora">
+          <button type="button" id="map-next" class="icon-btn" aria-label="Un'ora dopo">›</button>
+          <output id="map-hour-text" for="map-hour" class="map-hour-text"></output>
+        </div>
+      </div>
     </section>
   </main>
 
-  <script src="app.js"></script>
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="app.js?v=2"></script>
+  <script src="meteo-map.js?v=1"></script>
 </body>
 </html>

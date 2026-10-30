@@ -55,4 +55,31 @@ const searchFixture = {
   ],
 };
 
-module.exports = { forecastFixture, searchFixture };
+// Risposta finta di Open-Meteo per la mappa: serie oraria di 8 giorni da mezzanotte UTC,
+// orari in secondi Unix. Con un punto solo Open-Meteo risponde con un oggetto, con più punti con un elenco.
+const MAP_START = Date.UTC(2026, 9, 30) / 1000;
+
+function mapPointFixture(lat, lon) {
+  const time = Array.from({ length: 192 }, (_, i) => MAP_START + i * 3600);
+  const H = (fn) => time.map((_, i) => fn(i % 24, Math.floor(i / 24)));
+  return {
+    latitude: lat,
+    longitude: lon,
+    hourly: {
+      time,
+      temperature_2m: H((h, d) => 10.4 + lat / 10 + d + 6 * Math.sin(((h - 9) / 24) * 2 * Math.PI)),
+      weather_code: H((h, d) => [0, 2, 3, 61, 80, 95, 71, 1][d]),
+      precipitation_probability: H((h, d) => (d === 3 ? 80 : 10)),
+      precipitation: H((h, d) => (d === 3 ? 1.234 : 0)),
+      is_day: H((h) => (h >= 6 && h < 17 ? 1 : 0)),
+      wind_speed_10m: H((h) => 5.6 + h),
+    },
+  };
+}
+
+function mapFixture(lats, lons) {
+  const list = lats.map((lat, i) => mapPointFixture(lat, lons[i]));
+  return list.length === 1 ? list[0] : list;
+}
+
+module.exports = { forecastFixture, searchFixture, mapFixture, MAP_START };

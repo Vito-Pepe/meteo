@@ -131,6 +131,13 @@ test('mappa: punti in un solo gruppo, arrotondati e in cache', async () => {
   assert.strictEqual(new URL(calls[calls.length - 1]).searchParams.get('latitude'), '44.5');
 });
 
+test('mappa: punti con ";" e "," codificati, come li manda la pagina', async () => {
+  // Il proxy HTTPS di Tailscale toglie i parametri con ";" non codificato: la pagina usa %3B e %2C
+  const r = await get('/api/map?points=' + encodeURIComponent('45.46,9.19;41.9,12.5'));
+  assert.strictEqual(r.status, 200);
+  assert.deepStrictEqual(JSON.parse(r.text).points.map((p) => [p.lat, p.lon]), [[45.46, 9.19], [41.9, 12.5]]);
+});
+
 test('mappa: punti non validi', async () => {
   assert.strictEqual((await get('/api/map')).status, 400);
   assert.strictEqual((await get('/api/map?points=95,10')).status, 400);

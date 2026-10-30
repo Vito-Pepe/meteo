@@ -132,7 +132,10 @@
     points.forEach(function (g) { pending[g.key] = true; });
     loading++;
     status('Carico il meteo…');
-    A.getJson('/api/map?points=' + points.map(function (g) { return g.lat + ',' + g.lon; }).join(';'))
+    // ";" e "," vanno codificati: il proxy HTTPS di Tailscale (in Go) toglie dalla query i
+    // parametri con un ";" scritto così com'è, e al server arriverebbe una richiesta senza punti.
+    var list = points.map(function (g) { return g.lat + ',' + g.lon; }).join(';');
+    A.getJson('/api/map?points=' + encodeURIComponent(list))
       .then(function (body) {
         var at = Date.now();
         body.points.forEach(function (p) { remember(p.lat + ',' + p.lon, { p: p, at: at }); });

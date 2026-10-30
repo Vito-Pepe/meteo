@@ -4,7 +4,11 @@ Stazione meteo self-hosted: una pagina web che mostra il meteo della tua posizio
 
 - **Oggi in dettaglio** (vista predefinita): condizioni attuali, temperatura percepita, vento e raffiche, umidità, pressione, nuvolosità, alba/tramonto, UV e le prossime 24 ore ora per ora con grafico.
 - **Settimana**: 7 giorni con min/max, pioggia e vento; tocca un giorno per vederne il dettaglio ora per ora.
-- **Mappa** (scheda in alto): spostando la mappa col dito si vedono i simboli del tempo e la temperatura, colorata dal blu del freddo al rosso del caldo. In basso si scelgono il giorno (oggi e i 6 dopo) e l'ora; toccando un simbolo si vedono pioggia, millimetri e vento, e "Previsioni di qui" apre le previsioni di quel punto.
+- **Mappa** (scheda in alto), da spostare col dito, con due viste:
+  - **Tempo**: un disegno animato all'ora scelta. Ci sono nuvole più grandi e fitte dove la nuvolosità è alta, che si muovono col vento, pioggia che cade e temporali con nuvole scure, lampi e fulmini. Ci sono anche neve, nebbia e un alone di sole dove è sereno.
+  - **Temperatura**: zone colorate dal blu, sempre più intenso verso il freddo, ai rossi, sempre più intensi verso il caldo, con i gradi sopra.
+
+  In basso si scelgono il giorno (oggi e i 6 dopo) e l'ora. Toccando la mappa si vedono temperatura, pioggia, nuvolosità e vento del punto più vicino, e "Previsioni di qui" apre le previsioni di quel punto.
 - **Posizione**: alla prima apertura chiede la posizione al browser. Se non è disponibile, mostra l'ultima località consultata su quel dispositivo, altrimenti ti chiede di cercarne una.
 - Funziona su qualsiasi browser moderno (Chrome, Firefox, Safari, Edge, anche da telefono), con tema chiaro/scuro automatico.
 
@@ -76,7 +80,9 @@ L'indirizzo HTTPS, solo dentro la tailnet, viene dal servizio `meteo` della repo
 ## Come funziona la mappa
 
 - La pagina mette una griglia di punti sulla parte visibile, a circa 100 pixel l'uno dall'altro, e chiede `/api/map?points=lat,lon;lat,lon;…` (al massimo 100 punti, con `;` e `,` codificati: il proxy HTTPS di Tailscale toglie i parametri con `;`). Il server li chiede a Open-Meteo tutti insieme, in una sola richiesta, e li tiene un'ora.
-- Ogni punto arriva con 8 giorni ora per ora (temperatura, simbolo, probabilità e millimetri di pioggia, giorno o notte, vento): cambiare giorno e ora non chiede niente al server.
+- Ogni punto arriva con 8 giorni ora per ora (temperatura, tempo, probabilità e millimetri di pioggia, giorno o notte, nuvolosità, velocità e direzione del vento): cambiare giorno e ora non chiede niente al server. Sono 8 variabili: sotto le 10, ogni punto conta come una chiamata sola a Open-Meteo.
+- Il disegno è un canvas in un livello della mappa: sopra le tessere, sotto il punto blu e le schede. Nella vista Tempo si muove al massimo a 30 fotogrammi al secondo e si ferma quando la mappa non si vede. Con "Riduci movimento" del telefono resta fermo.
+- Nella vista Temperatura ogni punto della griglia è un pixel di un'immagine piccolissima, ingrandita con lo sfumato del browser: diventa un campo di colore continuo, senza conti in più.
 - La griglia è la stessa a ogni zoom (i punti di uno zoom sono anche in quello dopo): allontanandosi i punti tornano dalla cache. Oltre lo zoom 11 i modelli non hanno più dettaglio e i punti restano quelli.
 - Le mappe passano dal server (`/tiles/z/x/y.png`), che le scarica da OpenStreetMap con il suo User-Agent, quattro alla volta, e le tiene in memoria (fino a 64 MB), come chiedono le [regole d'uso](https://operations.osmfoundation.org/policies/tiles/).
 - Il server non supera i limiti di Open-Meteo: oltre i numeri della tabella risponde "Troppe richieste" e la mappa lo scrive in alto.

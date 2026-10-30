@@ -73,6 +73,8 @@ function mapPointFixture(lat, lon) {
       precipitation: H((h, d) => (d === 3 ? 1.234 : 0)),
       is_day: H((h) => (h >= 6 && h < 17 ? 1 : 0)),
       wind_speed_10m: H((h) => 5.6 + h),
+      wind_direction_10m: H((h) => (h * 15 + 0.4) % 360),
+      cloud_cover: H((h, d) => [0, 50, 100, 100, 90, 100, 100, 20][d] - (h % 2 ? 0.4 : 0)),
     },
   };
 }

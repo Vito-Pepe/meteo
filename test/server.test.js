@@ -123,6 +123,8 @@ test('mappa: punti in un solo gruppo, arrotondati e in cache', async () => {
   assert.ok(p.temperature.every(Number.isInteger), 'temperature intere');
   assert.strictEqual(p.precip[72], 1.2, 'pioggia a un decimale');
   assert.deepStrictEqual([p.code[0], p.is_day[12], p.wind[23], p.precip_prob[72]], [0, 1, 29, 80]);
+  assert.deepStrictEqual([p.cloud[24], p.cloud[49], p.wind_dir[2], p.wind_dir.length], [50, 100, 30, 192], 'nuvolosità e direzione del vento, intere');
+  assert.match(u.searchParams.get('hourly'), /cloud_cover/);
 
   // Di nuovo, con un punto nuovo: a Open-Meteo va solo quello (e risponde con un oggetto, non un elenco)
   const r2 = await get('/api/map?points=45.46,9.19;41.9,12.5;44.5,11.34');

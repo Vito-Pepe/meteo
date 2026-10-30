@@ -26,8 +26,10 @@ const MAP_LIMITS = {
   hour: parseInt(process.env.MAP_LIMITE_ORA || '3000', 10),
   day: parseInt(process.env.MAP_LIMITE_GIORNO || '7000', 10),
 };
+// 8 variabili: sotto le 10, ogni punto conta ancora come una chiamata sola
 const MAP_HOURLY_VARS = [
-  'temperature_2m', 'weather_code', 'precipitation_probability', 'precipitation', 'is_day', 'wind_speed_10m',
+  'temperature_2m', 'weather_code', 'precipitation_probability', 'precipitation', 'is_day',
+  'wind_speed_10m', 'wind_direction_10m', 'cloud_cover',
 ];
 
 // Mappe di OpenStreetMap (https://operations.osmfoundation.org/policies/tiles/): poche alla volta,
@@ -208,6 +210,8 @@ function compactPoint(point, hourly) {
     precip: map(h.precipitation, (v) => Math.round(v * 10) / 10),
     is_day: map(h.is_day, (v) => v),
     wind: map(h.wind_speed_10m, Math.round),
+    wind_dir: map(h.wind_direction_10m, Math.round),
+    cloud: map(h.cloud_cover, Math.round),
   };
 }
 

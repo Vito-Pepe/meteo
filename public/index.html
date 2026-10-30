@@ -9,7 +9,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="style.css?v=2">
-  <link rel="stylesheet" href="meteo-map.css?v=1">
+  <link rel="stylesheet" href="meteo-map.css?v=2">
 </head>
 <body>
   <header class="topbar">
@@ -61,10 +61,15 @@
     <section id="view-map" class="view-map" hidden>
       <div class="map-wrap">
         <div id="map" class="map" aria-label="Mappa del meteo"></div>
+        <div class="map-layers" role="group" aria-label="Cosa mostrare sulla mappa">
+          <button type="button" data-layer="weather" aria-pressed="true">☁️ Tempo</button>
+          <button type="button" data-layer="temperature" aria-pressed="false">🌡️ Temperatura</button>
+        </div>
         <p id="map-status" class="map-status" role="status" hidden></p>
         <button type="button" id="map-now" class="map-now" hidden>Torna ad adesso</button>
       </div>
       <div class="map-controls">
+        <div id="map-legend" class="map-legend"></div>
         <div id="map-days" class="map-days" role="group" aria-label="Giorno"></div>
         <div class="map-hour">
           <button type="button" id="map-prev" class="icon-btn" aria-label="Un'ora prima">‹</button>
@@ -78,6 +83,6 @@
 
   <script src="vendor/leaflet/leaflet.js"></script>
   <script src="app.js?v=2"></script>
-  <script src="meteo-map.js?v=2"></script>
+  <script src="meteo-map.js?v=3"></script>
 </body>
 </html>
